@@ -8,7 +8,7 @@ include('../../secret/secrets.php');
 
 
 $login = "";
-$password = "";
+$password = rand(1, 9).rand(0, 9).rand(0, 9).rand(0, 9);
 
 // Retrieve the raw POST data
 $jsonData = file_get_contents('php://input');
@@ -16,7 +16,7 @@ $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 // Check if decoding was successful
 if ($data !== null) {
-   if(empty($data['login']) || empty($data['password'])){
+   if(empty($data['login'])){
    // JSON decoding failed
    http_response_code(400); // Bad Request
    $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data');
@@ -27,7 +27,6 @@ if ($data !== null) {
 else{
    // Access the data and perform operations
    $login = $data['login'];
-   $password = $data['password'];
 }
 } else {
    // JSON decoding failed
@@ -87,7 +86,7 @@ $passwordIsValid = false;
    if(!empty($login) && preg_match("/^(?:[a-z0-9]+(?:[-_.]?[a-z0-9]+)?@[a-z0-9_.-]+(?:\.?[a-z0-9]+)?\.[a-z]{2,5})$/i", $login)){
       $loginIsValid = true;
     }
-   if(!empty($password) && strlen($password)>5){
+   if(!empty($password) && strlen($password)==4){
       $passwordIsValid = true;
    }
 
