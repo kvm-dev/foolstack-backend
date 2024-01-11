@@ -1,8 +1,4 @@
 <?php
-//jwt
-namespace jwt\JWT;
-ini_set('post_max_size', '256M');
-ini_set('memory_limit', '-1');
 require '../../jwt/JWT.php';
 include('../../secret/secrets.php');
 
@@ -18,7 +14,7 @@ if ($data !== null) {
    if(empty($data['email'])){
    // JSON decoding failed
    http_response_code(400); // Bad Request
-   $row = array("success"=> false, "errorMsg"=> 'Invalid JSON Data');
+   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -30,7 +26,7 @@ else{
 } else {
    // JSON decoding failed
    http_response_code(400); // Bad Request
-   $row = array("success"=> false, "errorMsg"=> 'Invalid JSON Data');
+   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -71,10 +67,9 @@ foreach (getallheaders() as $name => $value) {
     }
     else if($name=="Local" && $value=="RU" || $name=="Local" && $value=="ENG"){
       $localValid = true;
-      if($value == "RU"){
-       $localIsRu = true;  
+      if($value=="RU"){
+         $localIsRu = true;
       }
-      
     }
 }
 
@@ -87,7 +82,7 @@ $emailIsValid = false;
 //checkErrors
    if($platformValid !==true){
    http_response_code(417);
-      $row = array("success"=> false, "errorMsg"=> 'Expectation Platform Failed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Platform Failed');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -95,34 +90,38 @@ $emailIsValid = false;
 
    if($versionValid !==true){
    http_response_code(417);
-      $row = array("success"=> false, "errorMsg"=> 'Expectation Version Failed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Version Failed');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
    }
 
    if($userTypeValid !==true){
-      http_response_code(417);
-      $row = array("success"=> false, "errorMsg"=> 'Expectation Usertype Failed');
+   http_response_code(417);
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Usertype Failed');
+      $result = json_encode($row, JSON_PRETTY_PRINT);
+      echo $result;
+      exit();
+   }
+
+   if($localValid !==true){
+   http_response_code(417);
+      $row = array("sucess"=> false, "errorMsg"=> 'Local Invalid');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
    }
 
    if($emailIsValid !==true){
-      $row = array("success"=> false, "errorMsg"=> 'Email Is Empty Or Incorrect');
+      $row = array("sucess"=> false, "errorMsg"=> 'Login Is Empty Or Incorrect');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
    }
 
-
-   //check user in database
+//check user in database
    $userAlreadyExist = false;
    $isUserConfirmed = false;
-   $userPasswordExp = 0;
-   $currentDataTime = strtotime("now");
-   $currentDateTimePlus5m = strtotime("+5 minutes");
    $userLogin = "";
    $userRequest ="SELECT * FROM `users` WHERE (`user_login` = '$email')";
    $resultCode = mysqli_query($conn, $userRequest) or die("Error " . mysqli_error($conn)); 
@@ -131,8 +130,6 @@ $emailIsValid = false;
    while ($userData = mysqli_fetch_assoc($resultCode)) {
    $userLogin = $userData['user_login'];
    $isConfirmed = $userData['is_verified'];
-   $userPasswordExp = $userData['user_password_exp'];
-   $userId = $userData['user_id'];
    if(!empty($userLogin)){
       $userAlreadyExist = true;
    }
@@ -142,54 +139,48 @@ $emailIsValid = false;
 }
 }
 
-   if($userAlreadyExist==true){
-      if($isUserConfirmed){
-         if($userPasswordExp>$currentDataTime){
-         $row = array("success"=> true, "errorMsg"=> "Password Is Already Sent");
-         $result = json_encode($row, JSON_PRETTY_PRINT);
-         echo $result;
-         }
-         else{
-            //updateBD
-            $updateUserPasswordExp = mysqli_query( $conn,  "UPDATE users SET user_password_exp='$currentDateTimePlus5m' WHERE (user_id='$userId')");
-            $confirmCode = rand(1, 9).rand(0, 9).rand(0, 9).rand(0, 9);
-            $tokenedPasswordPayload = array('password' => $confirmCode);
-            $encryptedPassword = JWT::encode($tokenedPasswordPayload, $serviceTokenPrivate, 'RS256');
-            $updateUserPassword = mysqli_query( $conn,  "UPDATE users SET user_password='$encryptedPassword' WHERE (user_id='$userId')");
-            //send email
+   if($userAlreadyExist!=true){
+      http_response_code(404);
+      $row = array("sucess"=> false, "errorMsg"=> 'User Is Not Found');
+      $result = json_encode($row, JSON_PRETTY_PRINT);
+      echo $result;
+      exit();
+   }
+   else{
+      if($isUserConfirmed!=true){
+      $row = array("sucess"=> false, "confirmCode"=> "", "errorMsg"=> 'User Is Not Confirmed');
+      $result = json_encode($row, JSON_PRETTY_PRINT);
+      echo $result;
+      exit();
+   }
+   else{
+   //send code and add code to db
+      $isVerified = false;
+      $confirmCode = rand(1, 9).rand(0, 9).rand(0, 9).rand(0, 9);
+      $confirmCodeExp = strtotime("+2 minutes");
+
+      //update data in bd
+       $updateConfirmCode = mysqli_query( $conn,  "UPDATE users SET user_forgot_password_code=$confirmCode WHERE (user_login='$email')");
+       $updateConfirmCode = mysqli_query( $conn,  "UPDATE users SET user_forgot_password_code_exp=$confirmCodeExp WHERE (user_login='$email')");
+
+
+   //sending email for confirm user
       $local = "EN";
       if($localIsRu == true){
       $local = "RU";
    }
       $ch = curl_init ();
       $access = 29114; //for example - antispam bot
-      $scriptaddress= "https://foolstack.ru/email-templates/temporary-password.php?useremail=".$email."&access=".$access."&code=".$confirmCode."&locale=".$local;
+      $scriptaddress= "https://foolstack.ru/email-templates/confirm-forgot-password.php?useremail=".$email."&access=".$access."&code=".$confirmCode."&locale=".$local;
       curl_setopt ($ch, CURLOPT_URL, $scriptaddress);
       curl_setopt ($ch, CURLOPT_FOLLOWLOCATION, true);
       curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
       echo curl_exec ($ch);
-            //response
-         $row = array("success"=> true, "errorMsg"=> "");
-         $result = json_encode($row, JSON_PRETTY_PRINT);
-         echo $result;
-   }
-      exit(); 
-      }
-      else{
-      $row = array("success"=> false, "errorMsg"=> "User Is Not Confirmed");
+      $row = array("sucess"=> true, "confirmCode"=> intval($confirmCode), "errorMsg"=> '');
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
-      exit(); 
-      }
-      
    }
-   else{
-      http_response_code(404);
-      $row = array("success"=> false, "errorMsg"=> 'User Is Not Found');
-      $result = json_encode($row, JSON_PRETTY_PRINT);
-      echo $result;
-      exit();
-   }
+    }
 
    mysqli_close($conn);
 ?>
