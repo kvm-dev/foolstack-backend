@@ -77,7 +77,7 @@ $passwordIsValid = false;
    if(!empty($email) && preg_match("/^(?:[a-z0-9]+(?:[-_.]?[a-z0-9]+)?@[a-z0-9_.-]+(?:\.?[a-z0-9]+)?\.[a-z]{2,5})$/i", $email)){
       $emailIsValid = true;
     }
-   if(!empty($password) && strlen($password)>5){
+   if(!empty($password) && strlen($password)==4){
       $passwordIsValid = true;
    }
 

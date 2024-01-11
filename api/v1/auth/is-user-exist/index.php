@@ -55,6 +55,8 @@ mysqli_set_charset($conn,"utf8");
 $platformValid = false;
 $userTypeValid = false;
 $versionValid = false;
+$localValid = false;
+$localIsRu = false;
 
 foreach (getallheaders() as $name => $value) {
    // echo "$name: $value\n";
@@ -66,6 +68,13 @@ foreach (getallheaders() as $name => $value) {
     }
     else if($name=="Usertype" && $value=="client"){
       $userTypeValid = true;
+    }
+    else if($name=="Local" && $value=="RU" || $name=="Local" && $value=="ENG"){
+      $localValid = true;
+      if($value == "RU"){
+       $localIsRu = true;  
+      }
+      
     }
 }
 
@@ -111,6 +120,9 @@ $emailIsValid = false;
    //check user in database
    $userAlreadyExist = false;
    $isUserConfirmed = false;
+   $userPasswordExp = 0;
+   $currentDataTime = strtotime("now");
+   $currentDateTimePlus5m = strtotime("+5 minutes");
    $userLogin = "";
    $userRequest ="SELECT * FROM `users` WHERE (`user_login` = '$email')";
    $resultCode = mysqli_query($conn, $userRequest) or die("Error " . mysqli_error($conn)); 
@@ -119,6 +131,8 @@ $emailIsValid = false;
    while ($userData = mysqli_fetch_assoc($resultCode)) {
    $userLogin = $userData['user_login'];
    $isConfirmed = $userData['is_verified'];
+   $userPasswordExp = $userData['user_password_exp'];
+   $userId = $userData['user_id'];
    if(!empty($userLogin)){
       $userAlreadyExist = true;
    }
@@ -130,9 +144,35 @@ $emailIsValid = false;
 
    if($userAlreadyExist==true){
       if($isUserConfirmed){
-      $row = array("success"=> true, "errorMsg"=> "");
-      $result = json_encode($row, JSON_PRETTY_PRINT);
-      echo $result;
+         if($userPasswordExp>$currentDataTime){
+         $row = array("success"=> true, "errorMsg"=> "Password Is Already Sent");
+         $result = json_encode($row, JSON_PRETTY_PRINT);
+         echo $result;
+         }
+         else{
+            //updateBD
+            $updateUserPasswordExp = mysqli_query( $conn,  "UPDATE users SET user_password_exp='$currentDateTimePlus5m' WHERE (user_id='$userId')");
+            $confirmCode = rand(1, 9).rand(0, 9).rand(0, 9).rand(0, 9);
+            $tokenedPasswordPayload = array('password' => $confirmCode);
+            $encryptedPassword = JWT::encode($tokenedPasswordPayload, $serviceTokenPrivate, 'RS256');
+            $updateUserPassword = mysqli_query( $conn,  "UPDATE users SET user_password='$encryptedPassword' WHERE (user_id='$userId')");
+            //send email
+      $local = "EN";
+      if($localIsRu == true){
+      $local = "RU";
+   }
+      $ch = curl_init ();
+      $access = 29114; //for example - antispam bot
+      $scriptaddress= "https://foolstack.ru/email-templates/temporary-password.php?useremail=".$email."&access=".$access."&code=".$confirmCode."&locale=".$local;
+      curl_setopt ($ch, CURLOPT_URL, $scriptaddress);
+      curl_setopt ($ch, CURLOPT_FOLLOWLOCATION, true);
+      curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
+      echo curl_exec ($ch);
+            //response
+         $row = array("success"=> true, "errorMsg"=> "");
+         $result = json_encode($row, JSON_PRETTY_PRINT);
+         echo $result;
+   }
       exit(); 
       }
       else{

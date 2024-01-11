@@ -9,6 +9,8 @@ include('../../secret/secrets.php');
 
 $email = "";
 $verificationCode = "";
+$userToken = "";
+$userRefreshToken = "";
 
 // Retrieve the raw POST data
 $jsonData = file_get_contents('php://input');
@@ -19,7 +21,7 @@ if ($data !== null) {
    if(empty($data['email']) || empty($data['verification_code'])){
    // JSON decoding failed
    http_response_code(400); // Bad Request
-   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data');
+   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -32,7 +34,7 @@ else{
 } else {
    // JSON decoding failed
    http_response_code(400); // Bad Request
-   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data');
+   $row = array("sucess"=> false, "errorMsg"=> 'Invalid JSON Data', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -71,6 +73,7 @@ foreach (getallheaders() as $name => $value) {
     }
 }
 
+   
 //email and verification code validation
 $emailIsValid = false;
 $codeIsValid = false;
@@ -85,7 +88,7 @@ $codeString = (string)$verificationCode;
 //checkErrors
    if($platformValid !==true){
    http_response_code(417);
-      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Platform Failed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Platform Failed', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -93,7 +96,7 @@ $codeString = (string)$verificationCode;
 
    if($versionValid !==true){
    http_response_code(417);
-      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Version Failed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Version Failed', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -101,21 +104,21 @@ $codeString = (string)$verificationCode;
 
    if($userTypeValid !==true){
    http_response_code(417);
-      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Usertype Failed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Expectation Usertype Failed', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
    }
 
    if($emailIsValid !==true){
-      $row = array("sucess"=> false, "errorMsg"=> 'Email Is Empty Or Incorrect');
+      $row = array("sucess"=> false, "errorMsg"=> 'Email Is Empty Or Incorrect', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
    }
 
    if($codeIsValid !==true){
-      $row = array("sucess"=> false, "errorMsg"=> 'Verification Code Is Empty Or Incorrect');
+      $row = array("sucess"=> false, "errorMsg"=> 'Verification Code Is Empty Or Incorrect', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -129,6 +132,8 @@ $codeString = (string)$verificationCode;
    {  
    while ($codeInBd = mysqli_fetch_assoc($resultCode)) {
    $email_confirm_code = $codeInBd['email_confirm_code'];
+   $userToken =  $codeInBd['user_token'];
+   $userRefreshToken = $codeInBd['user_refresh_token'];
    if($email_confirm_code==$verificationCode){
       $unconfirmedUserError = false;
    }
@@ -136,7 +141,7 @@ $codeString = (string)$verificationCode;
    }
 
    if($unconfirmedUserError==true){
-      $row = array("sucess"=> false, "errorMsg"=> 'Email Is Not Found, Invalid Verification Code Or User Already Confirmed');
+      $row = array("sucess"=> false, "errorMsg"=> 'Email Is Not Found, Invalid Verification Code Or User Already Confirmed', "userToken"=> "", "userRefreshToken" => "");
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
       exit();
@@ -147,7 +152,7 @@ $codeString = (string)$verificationCode;
       //update confirm status
       $updateConfirmData = mysqli_query( $conn,  "UPDATE users SET is_verified=1 WHERE (user_login='$email')");
       //response
-      $row = array("sucess"=> true, "errorMsg"=> '');
+      $row = array("sucess"=> true, "errorMsg"=> '',"userToken"=> $userToken, "userRefreshToken" => $userRefreshToken);
       $result = json_encode($row, JSON_PRETTY_PRINT);
       echo $result;
    }
