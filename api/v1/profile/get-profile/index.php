@@ -125,7 +125,7 @@ foreach (getallheaders() as $name => $value) {
          $userEmail = "";
          $isVerified = false;
          $userProfessionId = 0;
-         $userSubProfessionId = 0;
+         $userSubProfessionId = "";
          $userKnowledgeAreasList = "";
          $profession = null;
          $subProfession = null;
@@ -141,7 +141,7 @@ foreach (getallheaders() as $name => $value) {
       $userEmail = $profile['user_login'];  
       $verifiedStatus = $profile['is_verified'];
       $userProfessionId = $profile['user_profession'];
-      $userSubProfessionId = $profile['user_sub_profession'];
+      $userSubProfessionId = explode(", ", $profile['user_sub_profession']);
       $userKnowledgeAreasList = $profile['user_knowledge_area'];
       if($verifiedStatus==1){
          $isVerified = true;
@@ -157,24 +157,36 @@ foreach (getallheaders() as $name => $value) {
       //init
       $professionName = $professionResponse['profession_name'];
       $professionIcon = $professionResponse['icon'];
+      $professionType = $professionResponse['type'];
+      $professionParent = $professionResponse['parent'];
+      $professionPriority = $professionResponse['priority'];
       if(!(empty($professionName))){
-         $profession = array("professionId"=> $userProfessionId, "professionName"=> $professionName, "icon"=>$professionIcon);   
+         $profession = array("professionId"=> intval($userProfessionId), "professionName"=> $professionName, "icon"=>$professionIcon, "type"=>intval($professionType), "parent"=>intval($professionParent), "priority"=>intval($professionPriority));   
              }
             }
           }
-     //get sub profession
-      $getSubProfessions ="SELECT * FROM `sub_professions` WHERE (`sub_profession_id` = '$userSubProfessionId')";
-      $resultSubProfession = mysqli_query($conn, $getSubProfessions) or die("Error " . mysqli_error($conn)); 
-      if($resultSubProfession){  
-      while ($subProfessionResponse = mysqli_fetch_assoc($resultSubProfession)) {
+      //get sub profession
+          $subProfessionsList = array();
+          foreach ($userSubProfessionId as &$sub) {
+          $getSubProfession ="SELECT * FROM `professions` WHERE (`profession_id` = '$sub')";
+          $resultSubProfession = mysqli_query($conn, $getSubProfession) or die("Error " . mysqli_error($conn)); 
+          if($resultSubProfession){  
+            while ($subProfessionItem = mysqli_fetch_assoc($resultSubProfession)) {
       //init
-      $subProfessionName = $subProfessionResponse['sub_profession_name'];
-      $subProfessionIcon = $subProfessionResponse['icon'];
-      if(!(empty($subProfessionName))){
-         $subProfession = array("subProfessionId"=> $userSubProfessionId, "subProfessionName"=> $subProfessionName, "icon"=>$subProfessionIcon);   
+               $subProfessionName = $subProfessionItem['profession_name'];
+               $subProfessionIcon = $subProfessionItem['icon'];
+               $subProfessionId = $sub;
+               $subProfessionType = $subProfessionItem['type'];
+               $subProfessionParent = $subProfessionItem['parent'];
+               $subProfessionPriority = $subProfessionItem['priority'];
+            if(!(empty($subProfessionName))){
+               $subProfessionItemCollector = array("professionId"=> intval($subProfessionId), "professionName"=> $subProfessionName, "icon"=>$subProfessionIcon, "type"=>intval($subProfessionType), "parent"=>intval($subProfessionParent), "priority"=>intval($subProfessionPriority));
+               array_push($subProfessionsList, $subProfessionItemCollector);
              }
             }
           }
+           
+      }
      //get knowledge areas
           $knowledgeAreas = array();
           $knowledgeAreasArray = explode(", ", $userKnowledgeAreasList);
@@ -185,8 +197,10 @@ foreach (getallheaders() as $name => $value) {
             while ($area = mysqli_fetch_assoc($resultAreas)) {
       //init
             $areaName = $area['area_name'];
+            $areaComplexity = $area['complexity'];
+            $areaPriority = $area['priority'];
             if(!(empty($areaName))){
-               $area = array("areaId"=> $id, "areaName"=> $areaName);
+               $area = array("areaId"=> $id, "areaName"=> $areaName, "complexity"=>$areaComplexity, "priority"=>$areaPriority);
                array_push($knowledgeAreas, $area);
              }
             }
@@ -194,7 +208,7 @@ foreach (getallheaders() as $name => $value) {
             }
       }
    }
-         $row = array("success"=> true, "userType"=> $userType, "userId"=> $userId, "userName"=> $userName, "userEmail"=> $userEmail, "isVerified"=> $isVerified, "userProfession"=> $profession, "userSubProfession"=> $subProfession, "userKnowledgeAreas"=> $knowledgeAreas, "errorMsg"=> "");
+         $row = array("success"=> true, "userType"=> $userType, "userId"=> intval($userId), "userName"=> $userName, "userEmail"=> $userEmail, "isVerified"=> $isVerified, "userProfession"=> $profession, "userSubProfession"=> $subProfessionsList, "userKnowledgeAreas"=> $knowledgeAreas, "errorMsg"=> "");
          $result = json_encode($row, JSON_PRETTY_PRINT);
          echo $result;
          exit(); 
@@ -208,7 +222,6 @@ foreach (getallheaders() as $name => $value) {
       echo $result;
       exit();
 }
-
 }
 else{
       http_response_code(401);
